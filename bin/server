@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+require_relative "../lib/github_discord_relay"
+
+settings = GithubDiscordRelay::Settings.new
+exec("bundle", "exec", "rackup", "-s", "puma", "-p", settings.port.to_s, "-o", "0.0.0.0")

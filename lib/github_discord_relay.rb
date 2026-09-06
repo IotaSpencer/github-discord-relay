@@ -1,0 +1,12 @@
+require "dotenv/load"
+require "sinatra/base"
+require "json"
+require "openssl"
+require "securerandom"
+require "uri"
+
+require_relative "github_discord_relay/settings"
+require_relative "github_discord_relay/store"
+require_relative "github_discord_relay/formatter"
+require_relative "github_discord_relay/discord_client"
+require_relative "github_discord_relay/app"
