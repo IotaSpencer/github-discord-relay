@@ -54,7 +54,7 @@ module GithubDiscordRelay
       halt 401, { error: "Invalid GitHub signature" }.to_json if @relay_settings.github_webhook_secret && !valid_signature?(body)
       payload = JSON.parse(body)
       @discord.relay(user, request.env.fetch("HTTP_X_GITHUB_EVENT", "unknown"), payload)
-      { status: "relayed" }.to_json
+      { status: "relayed", name: user.name }.to_json
     rescue JSON::ParserError
       halt 400, { error: "Request body must be valid JSON" }.to_json
     end

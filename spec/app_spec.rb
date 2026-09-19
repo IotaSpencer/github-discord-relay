@@ -36,7 +36,9 @@ RSpec.describe GithubDiscordRelay::App do
     token = JSON.parse(last_response.body).fetch("token")
     post "/hooks/#{token}", { action: "opened" }.to_json, "CONTENT_TYPE" => "application/json", "HTTP_X_GITHUB_EVENT" => "issues"
     expect(last_response.status).to eq(200)
+    expect(JSON.parse(last_response.body)["name"]).to eq("alice")
     expect(@discord.events.first[1]).to eq("issues")
+    expect(@discord.events.first[0].name).to eq("alice")
   end
 
   def app

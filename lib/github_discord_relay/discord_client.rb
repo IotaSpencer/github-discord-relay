@@ -6,7 +6,9 @@ module GithubDiscordRelay
       @bot = Discordrb::Bot.new(token: token, intents: [:server_messages, :server_members])
       @store = store
       @settings = settings
-      register_management_commands
+      @commands_registered = false
+      register_management_handlers
+      @bot.ready { register_management_commands }
     end
 
     def start
@@ -18,16 +20,30 @@ module GithubDiscordRelay
     end
 
     def relay(user, event_name, payload)
-      @bot.send_message(user.channel_id, nil, false, Formatter.embed(event_name, payload))
+      message = Formatter.message(event_name, payload, relay_name: user.name)
+      @bot.send_message(user.channel_id, nil, false, nil, nil, nil, nil, message[:components], message[:flags])
     end
 
     private
 
     def register_management_commands
+      return if @commands_registered
+
       register_create_command
       register_list_command
       register_state_command(:relay_enable, "Enable a relay user", true)
       register_state_command(:relay_disable, "Disable a relay user", false)
+      @commands_registered = true
+    rescue StandardError => error
+      warn "Unable to register Discord management commands: #{error.class}: #{error.message}"
+      raise
+    end
+
+    def register_management_handlers
+      register_create_handler
+      register_list_handler
+      register_state_handler(:relay_enable, true)
+      register_state_handler(:relay_disable, false)
     end
 
     def register_create_command
@@ -36,6 +52,9 @@ module GithubDiscordRelay
         command.string(:channel_id, "Discord channel ID for GitHub messages", required: true)
       end
 
+    end
+
+    def register_create_handler
       @bot.application_command(:relay_create) do |event|
         next unless authorized_admin?(event)
 
@@ -55,6 +74,9 @@ module GithubDiscordRelay
 
     def register_list_command
       @bot.register_application_command(:relay_list, "List GitHub relay users", server_id: @settings.admin_guild_id)
+    end
+
+    def register_list_handler
       @bot.application_command(:relay_list) do |event|
         next unless authorized_admin?(event)
 
@@ -69,6 +91,9 @@ module GithubDiscordRelay
         command.string(:name, "Relay user name", required: true)
       end
 
+    end
+
+    def register_state_handler(name, active)
       @bot.application_command(name) do |event|
         next unless authorized_admin?(event)
 
