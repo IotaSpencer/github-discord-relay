@@ -24,6 +24,10 @@ module GithubDiscordRelay
       @bot.send_message(user.channel_id, nil, false, nil, nil, nil, nil, message[:components], message[:flags])
     end
 
+    def relay_components(user, components)
+      @bot.send_message(user.channel_id, nil, false, nil, nil, nil, nil, components, Formatter::COMPONENTS_V2_FLAG)
+    end
+
     private
 
     def register_management_commands

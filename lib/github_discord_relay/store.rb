@@ -1,9 +1,10 @@
 require "fileutils"
 require "digest"
+require "securerandom"
 require "sequel"
 
 module GithubDiscordRelay
-  RelayUser = Struct.new(:name, :channel_id, :active, keyword_init: true)
+  RelayUser = Struct.new(:name, :channel_id, :active, :gh_user, keyword_init: true)
 
   class Store
     def initialize(database_path)
@@ -14,6 +15,10 @@ module GithubDiscordRelay
         String :token_hash, null: false, unique: true, size: 64
         Bignum :channel_id, null: false
         TrueClass :active, null: false, default: true
+        String :gh_user, null: true, size: 64
+      end
+      unless @db.schema(:relay_users).any? { |column| column.first == :gh_user }
+        @db.alter_table(:relay_users) { add_column :gh_user, String, size: 64 }
       end
       @users = @db[:relay_users]
     end
@@ -22,9 +27,9 @@ module GithubDiscordRelay
       Digest::SHA256.hexdigest(token)
     end
 
-    def create_user(name, channel_id)
+    def create_user(name, channel_id, gh_user: nil)
       token = SecureRandom.urlsafe_base64(32)
-      @users.insert(name: name, token_hash: self.class.hash_token(token), channel_id: channel_id)
+      @users.insert(name: name, token_hash: self.class.hash_token(token), channel_id: channel_id, gh_user: gh_user)
       [token, find(name)]
     end
 
@@ -49,7 +54,7 @@ module GithubDiscordRelay
     private
 
     def user_from(row)
-      RelayUser.new(name: row[:name], channel_id: row[:channel_id], active: row[:active])
+      RelayUser.new(name: row[:name], channel_id: row[:channel_id], active: row[:active], gh_user: row[:gh_user])
     end
   end
 end

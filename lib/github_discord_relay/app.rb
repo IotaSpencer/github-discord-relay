@@ -25,7 +25,9 @@ module GithubDiscordRelay
       name = input.fetch("name")
       halt 422, { error: "Invalid user name" }.to_json unless name.match?(/\A[a-zA-Z0-9_-]{1,64}\z/)
       channel_id = Integer(input.fetch("channel_id"))
-      token, user = @store.create_user(name, channel_id)
+      gh_user = input["gh_user"]
+      halt 422, { error: "Invalid gh_user" }.to_json unless gh_user.nil? || gh_user.match?(/\A[^\s]{1,64}\z/)
+      token, user = @store.create_user(name, channel_id, gh_user: gh_user)
       user_response(user, token)
     rescue Sequel::UniqueConstraintViolation
       halt 409, { error: "User already exists" }.to_json
@@ -45,6 +47,19 @@ module GithubDiscordRelay
       active = operation == "enable"
       halt 404, { error: "User not found" }.to_json unless @store.set_active(params["name"], active)
       user_response(@store.find(params["name"])).to_json
+    end
+
+    post "/hooks/:token/components" do
+      user = @store.find_by_token(params["token"])
+      halt 401, { error: "Invalid or disabled webhook" }.to_json unless user
+      payload = JSON.parse(request.body.read)
+      halt 403, { error: "gh_user is not authorized for this webhook" }.to_json unless authorized_custom_post?(user, payload["gh_user"])
+      halt 422, { error: "components must be an array" }.to_json unless payload["components"].is_a?(Array)
+
+      @discord.relay_components(user, payload["components"])
+      { status: "relayed" }.to_json
+    rescue JSON::ParserError
+      halt 400, { error: "Request body must be valid JSON" }.to_json
     end
 
     post "/hooks/:token" do
@@ -83,8 +98,13 @@ module GithubDiscordRelay
       secure_compare(expected, signature.delete_prefix("sha256="))
     end
 
+    def authorized_custom_post?(user, gh_user)
+      user.gh_user && gh_user && secure_compare(user.gh_user, gh_user)
+    end
+
     def user_response(user, token = nil)
       response = { name: user.name, channel_id: user.channel_id, active: user.active }
+      response[:gh_user] = user.gh_user if user.gh_user
       if token
         response[:webhook_url] = "#{@relay_settings.public_base_url.chomp("/")}/hooks/#{token}"
         response[:token] = token

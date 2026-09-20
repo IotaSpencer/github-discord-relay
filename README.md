@@ -55,6 +55,16 @@ curl -X POST http://localhost:8000/admin/users/alice/enable \
 
 The webhook endpoint accepts `POST /hooks/{token}` and returns `401` for unknown or disabled tokens. If `GITHUB_WEBHOOK_SECRET` is set, GitHub's `X-Hub-Signature-256` header is also required. Run tests with `bundle exec rake`.
 
+To post a custom Discord component-v2 announcement, configure the relay user's `gh_user` value when creating it, then call the components endpoint with the matching value:
+
+```bash
+curl -X POST http://localhost:8000/hooks/YOUR_WEBHOOK_TOKEN/components \
+  -H 'Content-Type: application/json' \
+  -d '{"gh_user":"octocat","components":[{"type":10,"content":"## Maintenance\nThe service will be unavailable briefly."}]}'
+```
+
+The webhook token is validated against `relay_users.token_hash`; `gh_user` is an additional permission check. The supplied component layout is sent as Discord components with the Component V2 flag. The endpoint returns `401` when either authorization value is invalid and `422` when `components` is not an array.
+
 ## Discord management commands
 
 Set `ADMIN_GUILD_ID`, `ADMIN_CHANNEL_ID`, and `ADMIN_USER_IDS` in `.env`. The bot registers these guild-scoped slash commands:
