@@ -49,7 +49,7 @@ module GithubDiscordRelay
       user_response(@store.find(params["name"])).to_json
     end
 
-    post "/hooks/:token/components" do
+    post "/hooks/:token/custom" do
       user = @store.find_by_token(params["token"])
       halt 401, { error: "Invalid or disabled webhook" }.to_json unless user
       payload = JSON.parse(request.body.read)
